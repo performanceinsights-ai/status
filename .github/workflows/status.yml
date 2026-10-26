@@ -5,6 +5,7 @@ name: Status
 # the infrastructure being measured, which is the point of a status page.
 on:
   schedule:
+    # GitHub starts these late and may skip some; the page flags data older than 30 minutes.
     - cron: "*/5 * * * *"
   workflow_dispatch:
   push:
