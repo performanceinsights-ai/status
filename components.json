@@ -58,7 +58,7 @@
           "name": "External monitoring (UptimeRobot)",
           "description": "Independent checks of the service from UptimeRobot's network",
           "checks": [
-            {"type": "uptimerobot", "api_key_env": "UPTIMEROBOT_API_KEY", "monitors": []}
+            {"type": "uptimerobot", "api_key_env": "UPTIMEROBOT_API_KEY", "monitors": [804220476]}
           ]
         }
       ]
