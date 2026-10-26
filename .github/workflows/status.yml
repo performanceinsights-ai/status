@@ -1,0 +1,74 @@
+name: Status
+
+# Probes the service from a GitHub-hosted runner every five minutes and publishes the page
+# (status.performanceinsights.ai) with GitHub Pages. Nothing here runs on, or is served by,
+# the infrastructure being measured, which is the point of a status page.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [probe.py, components.json, notices.json, "site/**", ".github/workflows/status.yml"]
+
+permissions:
+  contents: read
+
+# Rounds queue rather than cancel: each one reads the state the one before it wrote.
+concurrency:
+  group: status
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    permissions:
+      contents: write   # the `data` branch
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # State between rounds (previous results, daily roll-ups, incident log) is one file on a
+      # branch that is rewritten as a single commit every round, so it never grows the repository.
+      - name: Load the previous state
+        run: |
+          mkdir -p data
+          if git ls-remote --exit-code --heads "https://github.com/${GITHUB_REPOSITORY}.git" data >/dev/null 2>&1; then
+            git fetch --depth=1 --quiet "https://github.com/${GITHUB_REPOSITORY}.git" data
+            git show FETCH_HEAD:state.json > data/state.json
+          fi
+
+      - name: Probe
+        env:
+          UPTIMEROBOT_API_KEY: ${{ secrets.UPTIMEROBOT_API_KEY }}
+        run: python3 probe.py --data data --out public
+
+      - name: Save the state
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          out="$RUNNER_TEMP/state-branch"
+          mkdir -p "$out"
+          cp data/state.json "$out/"
+          cd "$out"
+          git init -q -b data
+          git -c user.name=status-probe -c user.email=status-probe@users.noreply.github.com add state.json
+          git -c user.name=status-probe -c user.email=status-probe@users.noreply.github.com commit -q -m "Status state"
+          git push -q --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" data
+
+      - name: Assemble the page
+        run: cp site/* public/
+
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: public
+      - id: deploy
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

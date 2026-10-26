@@ -1,0 +1,67 @@
+{
+  "stale_after_minutes": 30,
+  "history_days": 90,
+  "groups": [
+    {
+      "id": "service",
+      "name": "DumpTriage",
+      "components": [
+        {
+          "id": "portal",
+          "name": "Customer portal",
+          "description": "Sign in, upload dumps and read reports",
+          "checks": [
+            {"type": "http", "url": "https://app.performanceinsights.ai/dumptriage/", "degraded_ms": 4000, "bundle": true}
+          ]
+        },
+        {
+          "id": "api",
+          "name": "API",
+          "description": "Uploads, results and API keys over REST",
+          "checks": [
+            {"type": "http", "url": "https://api.performanceinsights.ai/healthz", "json": {"status": "ok"}, "degraded_ms": 3000},
+            {"type": "http", "url": "https://api.performanceinsights.ai/api/v1/data-locations", "json_keys": ["debugger"], "degraded_ms": 4000}
+          ]
+        },
+        {
+          "id": "backend",
+          "name": "Backend and database",
+          "description": "The service behind the API, and its database",
+          "checks": [
+            {"type": "http", "url": "https://api.performanceinsights.ai/readyz", "json": {"status": "ok", "database": "ok"}, "degraded_ms": 4000}
+          ]
+        },
+        {
+          "id": "website",
+          "name": "Website",
+          "description": "performanceinsights.ai: documentation, guides and legal pages",
+          "checks": [
+            {"type": "http", "url": "https://performanceinsights.ai/", "degraded_ms": 4000}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "third-party",
+      "name": "Third-party services",
+      "components": [
+        {
+          "id": "ai-analysis",
+          "name": "AI analysis (Google Vertex AI)",
+          "description": "Google's own status feed for the Gemini service that writes the reports",
+          "checks": [
+            {"type": "google_cloud", "products": ["Vertex Gemini API", "Vertex AI Online Prediction"]}
+          ]
+        },
+        {
+          "id": "uptimerobot",
+          "name": "External monitoring (UptimeRobot)",
+          "description": "Independent checks of the service from UptimeRobot's network",
+          "checks": [
+            {"type": "uptimerobot", "api_key_env": "UPTIMEROBOT_API_KEY", "monitors": []}
+          ]
+        }
+      ]
+    }
+  ]
+}
