@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: python3 -m unittest discover -s tests -v
+      - run: node --check site/status.js
+      - name: The page renders data with textContent only
+        run: |
+          # status.json carries text from third parties (Google's incident summary); innerHTML would run it.
+          if grep -nE "innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\(" site/status.js; then exit 1; fi

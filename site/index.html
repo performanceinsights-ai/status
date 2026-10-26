@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="description" content="Live operational status of DumpTriage: customer portal, API, backend, AI analysis and external monitoring.">
+<title>DumpTriage Status</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='12' fill='%232f9e5b'/%3E%3C/svg%3E">
+<link rel="alternate" type="application/json" href="status.json" title="Machine-readable status">
+<link rel="stylesheet" href="status.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="https://performanceinsights.ai/">Performance Insights</a>
+    <nav aria-label="Related">
+      <a href="https://performanceinsights.ai/dump-triage/">DumpTriage</a>
+      <a href="https://app.performanceinsights.ai/dumptriage/">Sign in</a>
+      <a href="mailto:hello@performanceinsights.ai">Contact</a>
+    </nav>
+  </div>
+</header>
+<main class="wrap">
+  <h1>DumpTriage status</h1>
+  <div id="stale" class="banner stale" role="alert" hidden></div>
+  <section id="overall" class="overall unknown" aria-live="polite">
+    <span class="dot" aria-hidden="true"></span>
+    <div><p id="overall-message" class="overall-message">Checking…</p><p id="updated" class="muted"></p></div>
+  </section>
+  <div id="notices"></div>
+  <noscript><p class="banner">This page needs JavaScript to show live status. The same data is available as <a href="status.json">status.json</a>.</p></noscript>
+  <div id="groups"></div>
+  <section aria-labelledby="incidents-title">
+    <h2 id="incidents-title">Incidents</h2>
+    <div id="incidents"></div>
+  </section>
+  <p class="muted foot">Checks run from outside our network every five minutes. A component turns degraded or down after two failed checks in a row. Third-party services show what their provider reports. Times are shown in your time zone. <a href="status.json">status.json</a></p>
+</main>
+<script src="status.js"></script>
+</body>
+</html>
