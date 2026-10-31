@@ -1,0 +1,223 @@
+{
+ "days": {
+  "2026-10-26": {
+   "ai-analysis": {
+    "deg": 0,
+    "ok": 6,
+    "out": 0
+   },
+   "api": {
+    "deg": 0,
+    "ok": 6,
+    "out": 0
+   },
+   "backend": {
+    "deg": 0,
+    "ok": 6,
+    "out": 0
+   },
+   "portal": {
+    "deg": 0,
+    "ok": 6,
+    "out": 0
+   },
+   "uptimerobot": {
+    "deg": 0,
+    "ok": 4,
+    "out": 0
+   },
+   "website": {
+    "deg": 0,
+    "ok": 6,
+    "out": 0
+   }
+  },
+  "2026-10-27": {
+   "ai-analysis": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   },
+   "api": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   },
+   "backend": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   },
+   "portal": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   },
+   "uptimerobot": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   },
+   "website": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   }
+  },
+  "2026-10-28": {
+   "ai-analysis": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   },
+   "api": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   },
+   "backend": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   },
+   "portal": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   },
+   "uptimerobot": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   },
+   "website": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   }
+  },
+  "2026-10-29": {
+   "ai-analysis": {
+    "deg": 0,
+    "ok": 4,
+    "out": 0
+   },
+   "api": {
+    "deg": 0,
+    "ok": 4,
+    "out": 0
+   },
+   "backend": {
+    "deg": 0,
+    "ok": 4,
+    "out": 0
+   },
+   "portal": {
+    "deg": 0,
+    "ok": 4,
+    "out": 0
+   },
+   "uptimerobot": {
+    "deg": 0,
+    "ok": 4,
+    "out": 0
+   },
+   "website": {
+    "deg": 0,
+    "ok": 4,
+    "out": 0
+   }
+  },
+  "2026-10-30": {
+   "ai-analysis": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   },
+   "api": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   },
+   "backend": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   },
+   "portal": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   },
+   "uptimerobot": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   },
+   "website": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   }
+  },
+  "2026-10-31": {
+   "ai-analysis": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   },
+   "api": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   },
+   "backend": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   },
+   "portal": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   },
+   "uptimerobot": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   },
+   "website": {
+    "deg": 0,
+    "ok": 5,
+    "out": 0
+   }
+  }
+ },
+ "events": [],
+ "prev": {
+  "ai-analysis": {
+   "published": "operational",
+   "raw": "operational"
+  },
+  "api": {
+   "published": "operational",
+   "raw": "operational"
+  },
+  "backend": {
+   "published": "operational",
+   "raw": "operational"
+  },
+  "portal": {
+   "published": "operational",
+   "raw": "operational"
+  },
+  "uptimerobot": {
+   "published": "operational",
+   "raw": "operational"
+  },
+  "website": {
+   "published": "operational",
+   "raw": "operational"
+  }
+ }
+}
