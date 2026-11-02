@@ -7,7 +7,8 @@ backend, website, AI analysis and external monitoring, with 90 days of history a
 
 ## How it works
 
-- `.github/workflows/status.yml` runs `probe.py` every five minutes on a GitHub-hosted runner, then publishes
+- `.github/workflows/status.yml` runs `probe.py` every five minutes on a GitHub-hosted runner (dispatched by an
+  outside timer, with a schedule as a fallback, since GitHub's schedule alone ran about four times a day), then publishes
   `site/` and the fresh `status.json` with GitHub Pages. It is outside the infrastructure it measures, so the page
   stays up when the service does not.
 - `components.json` lists what is shown and how each component is checked: HTTP checks of the public endpoints
