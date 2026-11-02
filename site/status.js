@@ -32,7 +32,7 @@
     if (c.detail) box.appendChild(el("p", "detail", c.detail));
     var bars = el("div", "bars");
     bars.style.setProperty("--n", c.days.length);
-    var label = c.uptime === null ? "No history yet" : c.uptime.toFixed(2) + "% uptime over " + c.days.length + " days";
+    var label = c.uptime === null ? "No history yet" : c.uptime.toFixed(2) + "% uptime over " + c.uptime_days + (c.uptime_days === 1 ? " day" : " days");
     bars.setAttribute("role", "img");
     bars.setAttribute("aria-label", c.name + ": " + label);
     c.days.forEach(function (d) {
@@ -83,7 +83,9 @@
     status.groups.forEach(function (g) {
       var section = el("section", "group");
       section.appendChild(el("h2", "", g.name));
-      g.components.forEach(function (c) { section.appendChild(renderComponent(c)); });
+      var components = el("div", "components");
+      g.components.forEach(function (c) { components.appendChild(renderComponent(c)); });
+      section.appendChild(components);
       groups.appendChild(section);
     });
 

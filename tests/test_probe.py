@@ -26,6 +26,17 @@ def doc(obj):
     return json.dumps(obj).encode()
 
 
+class UptimeDays(unittest.TestCase):
+    def test_counts_only_the_days_with_samples(self):
+        # The history window is 90 days; the figure must not claim days nothing measured (website#2912).
+        days = {"2026-10-25": {"c": {"ok": 3, "deg": 0, "out": 1}}, "2026-10-26": {"c": {"ok": 4, "deg": 0, "out": 0}}, "2026-10-24": {"other": {"ok": 9, "deg": 0, "out": 0}}}
+        history, uptime, measured = probe.day_summary(days, "c", NOW.date(), 90)
+        self.assertEqual((len(history), uptime, measured), (90, 87.5, 2))
+
+    def test_no_samples(self):
+        self.assertEqual(probe.day_summary({}, "c", NOW.date(), 90)[1:], (None, 0))
+
+
 class HttpCheck(unittest.TestCase):
     def test_ok(self):
         r = probe.check_http({"url": "u", "json": {"status": "ok"}}, fake({"u": (200, "application/json", doc({"status": "ok"}), 40)}))

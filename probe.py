@@ -216,7 +216,7 @@ def roll_up(days, cid, state, day, keep):
 
 
 def day_summary(days, cid, today, count):
-    out, total_ok, total = [], 0, 0
+    out, total_ok, total, measured = [], 0, 0, 0
     for offset in range(count - 1, -1, -1):
         day = (today - timedelta(days=offset)).isoformat()
         sample = days.get(day, {}).get(cid)
@@ -227,8 +227,8 @@ def day_summary(days, cid, today, count):
         state = OUTAGE if sample["out"] else DEGRADED if sample["deg"] else OPERATIONAL
         # Slow is still up; only an outage counts against uptime.
         out.append({"d": day, "s": state, "u": round(100 * (n - sample["out"]) / n, 2)})
-        total, total_ok = total + n, total_ok + n - sample["out"]
-    return out, (round(100 * total_ok / total, 2) if total else None)
+        total, total_ok, measured = total + n, total_ok + n - sample["out"], measured + 1
+    return out, (round(100 * total_ok / total, 2) if total else None), measured
 
 
 def track_events(events, cid, name, state, detail, now):
@@ -275,12 +275,12 @@ def build(config, env, state, notices, now, get=fetch):
             new_prev[component["id"]] = {"raw": result.state, "published": published}
             roll_up(days, component["id"], published, today.isoformat(), keep)
             track_events(events, component["id"], component["name"], published, result.detail, now)
-            history, uptime = day_summary(days, component["id"], today, keep)
+            history, uptime, uptime_days = day_summary(days, component["id"], today, keep)
             states.append(published)
             components.append({
                 "id": component["id"], "name": component["name"], "description": component.get("description", ""),
                 "state": published, "detail": result.detail if published != OPERATIONAL else "",
-                "latency_ms": result.latency_ms, "uptime": uptime, "days": history,
+                "latency_ms": result.latency_ms, "uptime": uptime, "uptime_days": uptime_days, "days": history,
             })
         if components:
             groups.append({"id": group["id"], "name": group["name"], "components": components})
