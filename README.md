@@ -26,7 +26,9 @@ backend, website, AI analysis and external monitoring, with 90 days of history a
   shows only inside that window. `level` is `info`, `maintenance` or `incident`.
 - The UptimeRobot panel's day bars, uptime figure and incidents come from UptimeRobot's own record (per-day uptime
   and its down/up log), not from this probe's rounds: it checks every few minutes and has history from before this
-  page existed (website#2915). Days before a monitor was created show no data.
+  page existed (website#2915). A monitor's creation day and the days before it show no data (UptimeRobot counts them as up),
+  paused monitors are left out, an ongoing outage shows once the state does, and incidents are kept by id since
+  UptimeRobot returns only its newest log lines.
 - UptimeRobot stays hidden until the repository secret `UPTIMEROBOT_API_KEY` (a read-only key) is set and
   `monitors` in `components.json` lists the monitor ids to show. Only listed monitors appear, so internal monitor
   names never reach the page.
