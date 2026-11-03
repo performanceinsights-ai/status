@@ -37,10 +37,11 @@ _GOOGLE_IMPACT_STATE = {"SERVICE_OUTAGE": OUTAGE, "SERVICE_DISRUPTION": DEGRADED
 
 
 class Result:
-    """What one check saw: a state, a customer-safe sentence about it, and the time it took."""
+    """What one check saw: a state, a customer-safe sentence about it, and the time it took.
+    `history` is a provider's own record (UptimeRobot's), used instead of this probe's samples."""
 
-    def __init__(self, state, detail="", latency_ms=None):
-        self.state, self.detail, self.latency_ms = state, detail, latency_ms
+    def __init__(self, state, detail="", latency_ms=None, history=None):
+        self.state, self.detail, self.latency_ms, self.history = state, detail, latency_ms, history
 
 
 def worst(states):
@@ -149,14 +150,73 @@ def check_google_cloud(spec, get=fetch, now=None):
     return Result(OPERATIONAL, "")
 
 
-def check_uptimerobot(spec, env, get=fetch):
-    """Worst state of the listed monitors. Without a key or any monitor ids there is nothing to
-    say, and the component is left off the page (returns None)."""
+def _day_ranges(today, count, now):
+    """UptimeRobot's custom_uptime_ranges for the last `count` UTC days, today up to now."""
+    out = []
+    for offset in range(count - 1, -1, -1):
+        day = today - timedelta(days=offset)
+        start = int(datetime(day.year, day.month, day.day, tzinfo=timezone.utc).timestamp())
+        out.append((day, start, min(start + 86400, int(now.timestamp()))))
+    return out
+
+
+def uptimerobot_history(monitors, ranges, cid, name, now):
+    """Day bars, uptime and incidents from UptimeRobot's own record of the listed monitors, which
+    checks every few minutes and saw outages this probe's sparser early rounds missed (website#2915).
+    Days before a monitor existed are unknown: UptimeRobot answers 100% for them. None if the
+    answer lacks what this needs."""
+    per_day = [[] for _ in ranges]
+    for monitor in monitors:
+        created = monitor.get("create_datetime")
+        ratios = str(monitor.get("custom_uptime_ranges", "")).split("-")
+        if not isinstance(created, int) or len(ratios) != len(ranges):
+            return None
+        for i, ((_, start, end), ratio) in enumerate(zip(ranges, ratios)):
+            start = max(start, created)
+            if end > start:
+                try:
+                    per_day[i].append((float(ratio), end - start))
+                except ValueError:
+                    return None
+    days, up, seconds, measured = [], 0.0, 0, 0
+    for (day, _, _), samples in zip(ranges, per_day):
+        if not samples:
+            days.append({"d": day.isoformat(), "s": UNKNOWN})
+            continue
+        ratio, span = min(samples)
+        days.append({"d": day.isoformat(), "s": OPERATIONAL if ratio >= 100 else OUTAGE, "u": round(ratio, 2)})
+        up, seconds, measured = up + ratio * span, seconds + span, measured + 1
+    events = []
+    for monitor in monitors:
+        current_down = monitor.get("status") in (8, 9)
+        logs = [log for log in monitor.get("logs", []) if isinstance(log.get("datetime"), int)]
+        newest = max((log["datetime"] for log in logs), default=None)
+        for log in logs:
+            if log.get("type") != 1:  # 1 is down; 2 up, 98 started, 99 paused
+                continue
+            start = datetime.fromtimestamp(log["datetime"], timezone.utc)
+            ongoing = current_down and log["datetime"] == newest
+            end = None if ongoing else start + timedelta(seconds=int(log.get("duration") or 0))
+            stamp = start.isoformat(timespec="seconds")
+            events.append({"id": f"{cid}-{stamp}", "component": cid, "name": name, "state": OUTAGE, "start": stamp,
+                           "end": end and min(end, now).isoformat(timespec="seconds"), "detail": "UptimeRobot could not reach the service"})
+    uptime = round(up / seconds, 2) if seconds else None
+    return {"days": days, "uptime": uptime, "uptime_days": measured, "events": events}
+
+
+def check_uptimerobot(spec, env, get=fetch, now=None, days=90, cid="uptimerobot", name="UptimeRobot"):
+    """Worst state of the listed monitors, with their history. Without a key or any monitor ids
+    there is nothing to say, and the component is left off the page (returns None)."""
     key = env.get(spec["api_key_env"], "")
     monitors = [str(m) for m in spec.get("monitors", [])]
     if not key or not monitors:
         return None
-    form = urllib.parse.urlencode({"api_key": key, "format": "json", "monitors": "-".join(monitors)}).encode()
+    now = now or datetime.now(timezone.utc)
+    ranges = _day_ranges(now.date(), days, now)
+    form = urllib.parse.urlencode({
+        "api_key": key, "format": "json", "monitors": "-".join(monitors), "logs": 1, "logs_limit": 50,
+        "custom_uptime_ranges": "-".join(f"{start}_{end}" for _, start, end in ranges),
+    }).encode()
     try:
         status, _, body, _ = get(UPTIMEROBOT_URL, data=form, headers={"Content-Type": "application/x-www-form-urlencoded"})
     except OSError:
@@ -169,10 +229,11 @@ def check_uptimerobot(spec, env, get=fetch):
     if not known:
         return Result(UNKNOWN, "No monitor reports a state")
     up = sum(1 for s in known if s == OPERATIONAL)
-    return Result(worst(known), f"{up} of {len(known)} external checks passing")
+    history = uptimerobot_history(doc.get("monitors", []), ranges, cid, name, now)
+    return Result(worst(known), f"{up} of {len(known)} external checks passing", history=history)
 
 
-def run_component(component, env, get=fetch):
+def run_component(component, env, get=fetch, now=None, days=90):
     """Combine a component's checks: the worst state wins, and the first problem is the detail."""
     results = []
     for spec in component["checks"]:
@@ -182,7 +243,7 @@ def run_component(component, env, get=fetch):
         elif kind == "google_cloud":
             result = check_google_cloud(spec, get)
         elif kind == "uptimerobot":
-            result = check_uptimerobot(spec, env, get)
+            result = check_uptimerobot(spec, env, get, now, days, component["id"], component["name"])
         else:
             raise ValueError(f"unknown check type {kind!r}")
         if result is not None:
@@ -193,7 +254,8 @@ def run_component(component, env, get=fetch):
     problem = next((r for r in results if r.state == state and r.detail), None)
     detail = problem.detail if problem else next((r.detail for r in results if r.detail), "")
     latencies = [r.latency_ms for r in results if r.latency_ms is not None]
-    return Result(state, detail, max(latencies) if latencies else None)
+    history = next((r.history for r in results if r.history), None)
+    return Result(state, detail, max(latencies) if latencies else None, history)
 
 
 def publish(raw, prev_raw, prev_published):
@@ -267,15 +329,20 @@ def build(config, env, state, notices, now, get=fetch):
     for group in config["groups"]:
         components = []
         for component in group["components"]:
-            result = run_component(component, env, get)
+            result = run_component(component, env, get, now, keep)
             if result is None:
                 continue
             before = prev.get(component["id"], {})
             published = publish(result.state, before.get("raw"), before.get("published"))
             new_prev[component["id"]] = {"raw": result.state, "published": published}
             roll_up(days, component["id"], published, today.isoformat(), keep)
-            track_events(events, component["id"], component["name"], published, result.detail, now)
-            history, uptime, uptime_days = day_summary(days, component["id"], today, keep)
+            if result.history:
+                # The provider's own incident log replaces what these rounds saw of it.
+                events = [e for e in events if e["component"] != component["id"]] + result.history["events"]
+                history, uptime, uptime_days = result.history["days"], result.history["uptime"], result.history["uptime_days"]
+            else:
+                track_events(events, component["id"], component["name"], published, result.detail, now)
+                history, uptime, uptime_days = day_summary(days, component["id"], today, keep)
             states.append(published)
             components.append({
                 "id": component["id"], "name": component["name"], "description": component.get("description", ""),

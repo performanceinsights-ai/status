@@ -3,6 +3,7 @@ import os
 import sys
 import tempfile
 import unittest
+import urllib.parse
 from datetime import datetime, timedelta, timezone
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -144,6 +145,57 @@ class UptimeRobotCheck(unittest.TestCase):
     def test_key_is_not_in_the_result(self):
         r = probe.check_uptimerobot(self.spec, {"K": "topsecret"}, self.answer(9))
         self.assertNotIn("topsecret", json.dumps(vars(r)))
+
+    def test_history_comes_from_uptimerobot(self):
+        # website#2915: UptimeRobot saw 25 minutes down on 10-25 that the probe's rounds missed.
+        created = int(datetime(2026, 10, 24, 6, tzinfo=timezone.utc).timestamp())
+        down = int(datetime(2026, 10, 25, 10, 17, tzinfo=timezone.utc).timestamp())
+        ratios = ["100.000"] * 87 + ["100.000", "98.264", "100.000"]
+        monitor = {"status": 2, "create_datetime": created, "custom_uptime_ranges": "-".join(ratios),
+                   "logs": [{"type": 2, "datetime": down + 1500, "duration": 9000}, {"type": 1, "datetime": down, "duration": 1500}]}
+        body = doc({"stat": "ok", "monitors": [monitor]})
+        r = probe.check_uptimerobot({"api_key_env": "K", "monitors": [1]}, {"K": "x"}, fake({probe.UPTIMEROBOT_URL: (200, "application/json", body, 5)}), NOW, 90, "ur", "UR")
+        days = r.history["days"]
+        self.assertEqual([d["s"] for d in days[-4:]], [probe.UNKNOWN, probe.OPERATIONAL, probe.OUTAGE, probe.OPERATIONAL])  # before the monitor existed: unknown
+        self.assertEqual((days[-2]["u"], r.history["uptime_days"]), (98.26, 3))
+        # Weighted by the seconds measured: 18 h on 10-24, a whole 10-25, 12 h of today.
+        self.assertEqual(r.history["uptime"], round((18 * 100 + 24 * 98.264 + 12 * 100) / 54, 2))
+        self.assertEqual(r.history["events"], [{"id": "ur-2026-10-25T10:17:00+00:00", "component": "ur", "name": "UR", "state": probe.OUTAGE,
+                                                "start": "2026-10-25T10:17:00+00:00", "end": "2026-10-25T10:42:00+00:00", "detail": "UptimeRobot could not reach the service"}])
+
+    def test_an_ongoing_outage_has_no_end(self):
+        start = int(NOW.timestamp()) - 600
+        monitor = {"status": 9, "create_datetime": 0, "custom_uptime_ranges": "-".join(["100"] * 90), "logs": [{"type": 1, "datetime": start, "duration": 600}]}
+        body = doc({"stat": "ok", "monitors": [monitor]})
+        r = probe.check_uptimerobot({"api_key_env": "K", "monitors": [1]}, {"K": "x"}, fake({probe.UPTIMEROBOT_URL: (200, "application/json", body, 5)}), NOW)
+        self.assertIsNone(r.history["events"][0]["end"])
+
+    def test_an_answer_without_history_keeps_the_probe_samples(self):
+        self.assertIsNone(probe.check_uptimerobot(self.spec, {"K": "x"}, self.answer(2, 2)).history)
+
+    def test_asks_for_one_range_per_day_ending_now(self):
+        seen = {}
+        def get(url, data=None, headers=None):
+            seen.update(urllib.parse.parse_qs(data.decode()))
+            return 200, "application/json", doc({"stat": "ok", "monitors": [{"status": 2}]}), 5
+        probe.check_uptimerobot(self.spec, {"K": "x"}, get, NOW, 90)
+        ranges = seen["custom_uptime_ranges"][0].split("-")
+        self.assertEqual(len(ranges), 90)
+        self.assertEqual(ranges[-1], f"{int(datetime(2026, 10, 26, tzinfo=timezone.utc).timestamp())}_{int(NOW.timestamp())}")
+        self.assertEqual(seen["logs"], ["1"])
+
+    def test_build_shows_uptimerobots_record_not_the_probe_samples(self):
+        down = int(NOW.timestamp()) - 7200
+        monitor = {"status": 2, "create_datetime": 0, "custom_uptime_ranges": "-".join(["100"] * 89 + ["99.5"]),
+                   "logs": [{"type": 1, "datetime": down, "duration": 300}]}
+        get = fake({probe.UPTIMEROBOT_URL: (200, "application/json", doc({"stat": "ok", "monitors": [monitor]}), 5)})
+        config = {"groups": [{"id": "g", "name": "G", "components": [{"id": "ur", "name": "UR", "checks": [{"type": "uptimerobot", "api_key_env": "K", "monitors": [1]}]}]}]}
+        stale = {"id": "ur-old", "component": "ur", "name": "UR", "state": probe.DEGRADED, "start": "2026-10-26T09:00:00+00:00", "end": "2026-10-26T09:05:00+00:00", "detail": ""}
+        status, state = probe.build(config, {"K": "x"}, {"events": [stale]}, [], NOW, get)
+        component = status["groups"][0]["components"][0]
+        self.assertEqual((component["state"], component["uptime_days"], component["days"][-1]["s"]), (probe.OPERATIONAL, 90, probe.OUTAGE))
+        self.assertEqual([e["start"] for e in status["incidents"]["recent"]], ["2026-10-26T10:00:00+00:00"])
+        self.assertEqual([e["id"] for e in state["events"]], ["ur-2026-10-26T10:00:00+00:00"])
 
 
 class Publish(unittest.TestCase):
