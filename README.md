@@ -16,9 +16,6 @@ backend, website, AI analysis and external monitoring, with 90 days of history a
   incident feed filtered to Vertex AI, and UptimeRobot's monitors.
 - A component turns degraded or down only after two runs in a row say so; a recovery shows at once. A third-party
   feed that cannot be read shows "Unknown", never an incident.
-- `deploy_pages.py` publishes the artifact under a build version of its own (`<sha>-<run id>-<attempt>`) instead of
-  `actions/deploy-pages`, which reuses the commit SHA and so one Pages deployment id for every round while `main` is
-  still (status#6).
 - After each deploy `verify_live.py` waits up to three minutes for the live `status.json` to show the data just built and
   fails the round if it does not, because GitHub Pages once reported success for 19 hours while serving an old build (status#6).
 - `state.json` (previous results, daily roll-ups, incident log) lives on the single-commit `data` branch.
