@@ -113,7 +113,7 @@ def cancel(env, dep_id, call=request):
 
 
 def deploy(env, artifact_id, call=request, on_created=lambda created: None, **wait_args):
-    """Create the deployment under a unique version and wait for it. Returns (outcome, created); outcome is 'succeed' or why not."""
+    """Create the deployment under a unique version and wait for it. Returns the outcome: 'succeed' or why not."""
     token = oidc_token(env, call)
     version = build_version(env)
     try:
@@ -136,7 +136,7 @@ def deploy(env, artifact_id, call=request, on_created=lambda created: None, **wa
         # the next round's create is refused while it is in progress.
         if outcome != "succeed" and outcome not in FAILED:
             cancel(env, dep_id, call)
-    return outcome, created
+    return outcome
 
 
 def _interrupted(signum, frame):
@@ -164,7 +164,7 @@ def main(argv=None):
             print("::warning::Pages returned no page_url")
 
     try:
-        outcome, _ = deploy(os.environ, args.artifact_id, request, on_created=announce)
+        outcome = deploy(os.environ, args.artifact_id, request, on_created=announce)
     except KeyError as err:
         print(f"::error::Missing environment variable {err}")
         return 1

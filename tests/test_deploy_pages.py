@@ -67,9 +67,8 @@ class Deploy(unittest.TestCase):
 
     def test_posts_unique_version_with_artifact_and_token_then_succeeds(self):
         fake = Fake({"id": "abc123-99-2", "page_url": "https://p/"})
-        outcome, created = deploy_pages.deploy(ENV, 7, fake, **NOWAIT)
+        outcome = deploy_pages.deploy(ENV, 7, fake, **NOWAIT)
         self.assertEqual(outcome, "succeed")
-        self.assertEqual(created["page_url"], "https://p/")
         post = [c for c in fake.calls if c[0] == "POST"][0]
         self.assertEqual(post[1], "https://api.github.com/repos/o/r/pages/deployments")
         self.assertEqual(post[2], "gh-token")
@@ -79,20 +78,20 @@ class Deploy(unittest.TestCase):
 
     def test_polls_the_deployment_it_created(self):
         fake = Fake({"id": "dep-9"}, ["queued", "deployment_in_progress", "succeed"])
-        outcome, _ = deploy_pages.deploy(ENV, 7, fake, **NOWAIT)
+        outcome = deploy_pages.deploy(ENV, 7, fake, **NOWAIT)
         self.assertEqual(outcome, "succeed")
         gets = [c[1] for c in fake.calls if c[0] == "GET" and "pages/deployments" in c[1]]
         self.assertEqual(gets, ["https://api.github.com/repos/o/r/pages/deployments/dep-9"] * 3)
 
     def test_failed_status_is_not_ok(self):
         fake = Fake({"id": "d"}, ["deployment_failed"])
-        outcome, _ = deploy_pages.deploy(ENV, 7, fake, **NOWAIT)
+        outcome = deploy_pages.deploy(ENV, 7, fake, **NOWAIT)
         self.assertEqual(outcome, "deployment_failed")
         self.assertEqual([c for c in fake.calls if c[1].endswith("/cancel")], [])  # already final, nothing to cancel
 
     def test_refused_version_retries_with_the_plain_sha(self):
         fake = Fake([deploy_pages.HttpError(422, "pages_build_version is invalid"), {"id": "abc123"}])
-        outcome, _ = deploy_pages.deploy(ENV, 7, fake, **NOWAIT)
+        outcome = deploy_pages.deploy(ENV, 7, fake, **NOWAIT)
         self.assertEqual(outcome, "succeed")
         posts = [c[3]["pages_build_version"] for c in fake.calls if c[0] == "POST"]
         self.assertEqual(posts, ["abc123-99-2", "abc123"])
@@ -112,7 +111,7 @@ class Deploy(unittest.TestCase):
 
     def test_a_poll_that_gives_up_cancels_the_deployment(self):
         fake = Fake({"id": "dep-9"}, [deploy_pages.HttpError(0, "URLError: down")])
-        outcome, _ = deploy_pages.deploy(ENV, 7, fake, **NOWAIT)
+        outcome = deploy_pages.deploy(ENV, 7, fake, **NOWAIT)
         self.assertTrue(outcome.startswith("error:"))
         self.assertEqual([c[1] for c in fake.calls if c[1].endswith("/cancel")],
                          ["https://api.github.com/repos/o/r/pages/deployments/dep-9/cancel"])
