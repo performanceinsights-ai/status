@@ -44,6 +44,9 @@ def main(argv=None):
     parser.add_argument("--attempts", type=int, default=18)
     parser.add_argument("--delay", type=int, default=10)
     args = parser.parse_args(argv)
+    if not args.url.startswith("https://"):
+        print(f"::error::No usable page URL to check ({args.url!r}); the deploy step did not report one")
+        return 1
     with open(args.built, encoding="utf-8") as handle:
         built = generated_at(handle.read())
 

@@ -80,9 +80,12 @@ jobs:
       - id: deploy
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: python3 deploy_pages.py --artifact-id "${{ steps.artifact.outputs.artifact_id }}"
+          ARTIFACT_ID: ${{ steps.artifact.outputs.artifact_id }}
+        run: python3 deploy_pages.py --artifact-id "$ARTIFACT_ID"
 
       # "Reported success!" is not proof: on 2026-11-06 every deploy reported it for 19 hours while Pages kept serving
       # the 12:25 build (status#6). Fail the round when the live page is older than the data just built.
       - name: Check the page serves this round
-        run: python3 verify_live.py --built public/status.json --url "${{ steps.deploy.outputs.page_url }}status.json"
+        env:
+          PAGE_URL: ${{ steps.deploy.outputs.page_url }}
+        run: python3 verify_live.py --built public/status.json --url "${PAGE_URL%/}/status.json"
