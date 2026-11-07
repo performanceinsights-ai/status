@@ -10,7 +10,7 @@ from unittest import mock
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import deploy_pages  # noqa: E402
 
-ENV = {"GITHUB_SHA": "abc123", "GITHUB_RUN_ID": "99", "GITHUB_RUN_ATTEMPT": "2", "GITHUB_REPOSITORY": "o/r",
+ENV = {"GITHUB_SHA": "abc123", "PAGES_BUILD_VERSION": "data456", "GITHUB_REPOSITORY": "o/r",
        "GITHUB_TOKEN": "gh-token", "ACTIONS_ID_TOKEN_REQUEST_URL": "https://oidc/x?a=1", "ACTIONS_ID_TOKEN_REQUEST_TOKEN": "req"}
 NOWAIT = {"sleep": lambda _: None}
 
@@ -42,15 +42,14 @@ class Fake:
 
 class Version(unittest.TestCase):
 
-    def test_includes_run_and_attempt(self):
-        self.assertEqual(deploy_pages.build_version(ENV), "abc123-99-2")
+    def test_uses_the_rounds_own_commit(self):
+        self.assertEqual(deploy_pages.build_version(ENV), "data456")
 
-    def test_attempt_defaults_to_one(self):
-        env = {k: v for k, v in ENV.items() if k != "GITHUB_RUN_ATTEMPT"}
-        self.assertEqual(deploy_pages.build_version(env), "abc123-99-1")
+    def test_two_rounds_on_one_main_commit_differ(self):
+        self.assertNotEqual(deploy_pages.build_version(ENV), deploy_pages.build_version({**ENV, "PAGES_BUILD_VERSION": "data789"}))
 
-    def test_two_rounds_on_one_commit_differ(self):
-        self.assertNotEqual(deploy_pages.build_version(ENV), deploy_pages.build_version({**ENV, "GITHUB_RUN_ID": "100"}))
+    def test_without_one_falls_back_to_the_commit_sha(self):
+        self.assertEqual(deploy_pages.build_version({k: v for k, v in ENV.items() if k != "PAGES_BUILD_VERSION"}), "abc123")
 
 
 class DeploymentId(unittest.TestCase):
@@ -66,13 +65,13 @@ class DeploymentId(unittest.TestCase):
 class Deploy(unittest.TestCase):
 
     def test_posts_unique_version_with_artifact_and_token_then_succeeds(self):
-        fake = Fake({"id": "abc123-99-2", "page_url": "https://p/"})
+        fake = Fake({"id": "data456", "page_url": "https://p/"})
         outcome = deploy_pages.deploy(ENV, 7, fake, **NOWAIT)
         self.assertEqual(outcome, "succeed")
         post = [c for c in fake.calls if c[0] == "POST"][0]
         self.assertEqual(post[1], "https://api.github.com/repos/o/r/pages/deployments")
         self.assertEqual(post[2], "gh-token")
-        self.assertEqual(post[3], {"artifact_id": 7, "pages_build_version": "abc123-99-2", "oidc_token": "jwt"})
+        self.assertEqual(post[3], {"artifact_id": 7, "pages_build_version": "data456", "oidc_token": "jwt"})
         oidc = fake.calls[0]
         self.assertEqual((oidc[1], oidc[2]), ("https://oidc/x?a=1", "req"))
 
@@ -94,7 +93,19 @@ class Deploy(unittest.TestCase):
         outcome = deploy_pages.deploy(ENV, 7, fake, **NOWAIT)
         self.assertEqual(outcome, "succeed")
         posts = [c[3]["pages_build_version"] for c in fake.calls if c[0] == "POST"]
-        self.assertEqual(posts, ["abc123-99-2", "abc123"])
+        self.assertEqual(posts, ["data456", "abc123"])
+
+    def test_unknown_commit_404_retries_with_the_plain_sha(self):
+        fake = Fake([deploy_pages.HttpError(404, "Not Found"), {"id": "abc123"}])
+        self.assertEqual(deploy_pages.deploy(ENV, 7, fake, **NOWAIT), "succeed")
+        self.assertEqual([c[3]["pages_build_version"] for c in fake.calls if c[0] == "POST"], ["data456", "abc123"])
+
+    def test_the_plain_sha_is_not_retried_with_itself(self):
+        env = {k: v for k, v in ENV.items() if k != "PAGES_BUILD_VERSION"}
+        fake = Fake([deploy_pages.HttpError(404, "Not Found")])
+        with self.assertRaises(deploy_pages.HttpError):
+            deploy_pages.deploy(env, 7, fake, **NOWAIT)
+        self.assertEqual(len([c for c in fake.calls if c[0] == "POST"]), 1)
 
     def test_other_errors_are_not_retried(self):
         fake = Fake([deploy_pages.HttpError(403, "no pages: write")])
@@ -214,7 +225,7 @@ class Main(unittest.TestCase):
         self.assertIn("pages: write", deploy_pages.create_hint(deploy_pages.HttpError(403, "")))
 
     def test_missing_variable_exits_one(self):
-        code, _ = self.run_main(Fake({"id": "d"}), {k: v for k, v in ENV.items() if k != "GITHUB_SHA"})
+        code, _ = self.run_main(Fake({"id": "d"}), {k: v for k, v in ENV.items() if k != "GITHUB_REPOSITORY"})
         self.assertEqual(code, 1)
 
 

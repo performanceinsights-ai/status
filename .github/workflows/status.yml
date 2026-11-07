@@ -53,7 +53,9 @@ jobs:
           UPTIMEROBOT_API_KEY: ${{ secrets.UPTIMEROBOT_API_KEY }}
         run: python3 probe.py --data data --out public
 
+      # Each round's commit on `data` is a real commit of its own: the Pages build version below (status#6).
       - name: Save the state
+        id: state
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
@@ -63,8 +65,9 @@ jobs:
           cd "$out"
           git init -q -b data
           git -c user.name=status-probe -c user.email=status-probe@users.noreply.github.com add state.json
-          git -c user.name=status-probe -c user.email=status-probe@users.noreply.github.com commit -q -m "Status state"
+          git -c user.name=status-probe -c user.email=status-probe@users.noreply.github.com commit -q -m "Status state ${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           git push -q --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" data
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Assemble the page
         run: cp site/* public/
@@ -76,11 +79,13 @@ jobs:
           path: public
 
       # Not actions/deploy-pages: it sends the commit SHA as the build version and the deployment id, and `main` rarely
-      # moves, so every round reused one id (status#6). deploy_pages.py makes the same calls under <sha>-<run>-<attempt>.
+      # moves, so every round reused one id (status#6). deploy_pages.py makes the same calls under this round's commit
+      # on `data`. (The made-up version <sha>-<run id>-<attempt> was answered with 404 on 2026-11-07.)
       - id: deploy
         env:
           GITHUB_TOKEN: ${{ github.token }}
           ARTIFACT_ID: ${{ steps.artifact.outputs.artifact_id }}
+          PAGES_BUILD_VERSION: ${{ steps.state.outputs.sha }}
         run: python3 deploy_pages.py --artifact-id "$ARTIFACT_ID"
 
       # "Reported success!" is not proof: on 2026-11-06 every deploy reported it for 19 hours while Pages kept serving

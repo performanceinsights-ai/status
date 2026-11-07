@@ -5,7 +5,8 @@ Usage: python3 deploy_pages.py --artifact-id 123
 
 actions/deploy-pages sends the commit SHA as `pages_build_version` and polls the deployment with that same id. `main`
 rarely moves, so every round reused one id, and on 2026-11-06 Pages served the 12:25 build for 19 hours while each
-deploy reported success (status#6). The version here is <sha>-<run id>-<attempt>, never a repeat. Same calls as the
+deploy reported success (status#6). The version here is PAGES_BUILD_VERSION, a commit of its own for every round
+(the workflow passes the round's commit on the `data` branch; a made-up string is answered with 404). Same calls as the
 action (POST /pages/deployments with the artifact id and the job's OIDC token, then poll until `succeed`, cancel the
 deployment when the job is cancelled or times out).
 """
@@ -47,7 +48,7 @@ def request(method, url, token, payload=None):
 
 
 def build_version(env):
-    return f"{env['GITHUB_SHA']}-{env['GITHUB_RUN_ID']}-{env.get('GITHUB_RUN_ATTEMPT', '1')}"
+    return env.get("PAGES_BUILD_VERSION") or env["GITHUB_SHA"]
 
 
 def oidc_token(env, call=request):
@@ -64,8 +65,8 @@ def create(env, artifact_id, token, version, call=request):
 
 
 def refused_version(err):
-    """Pages said the build version itself is not acceptable (not: a deployment in progress, a bad artifact or token)."""
-    return err.status in (400, 422) and "version" in err.body.lower()
+    """Pages did not accept the build version (404: no such commit). Not: a deployment in progress, a bad artifact or token."""
+    return err.status == 404 or (err.status in (400, 422) and "version" in err.body.lower())
 
 
 def create_hint(err):
@@ -119,9 +120,9 @@ def deploy(env, artifact_id, call=request, on_created=lambda created: None, **wa
     try:
         created = create(env, artifact_id, token, version, call)
     except HttpError as err:
-        if not refused_version(err):
+        if version == env["GITHUB_SHA"] or not refused_version(err):
             raise
-        # Keep the page updating if Pages refuses a version that is not a bare SHA.
+        # Keep the page updating, as before, if Pages does not accept this version. verify_live.py then catches a freeze.
         print(f"::warning::Pages refused build version {version} ({err}); retrying with the commit SHA")
         version = env["GITHUB_SHA"]
         created = create(env, artifact_id, token, version, call)
