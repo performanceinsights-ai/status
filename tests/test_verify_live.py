@@ -65,6 +65,10 @@ class WaitFor(unittest.TestCase):
         seen = verify_live.wait_for(BUILT, sequence(OSError("down"), b"not json", b"{}"), attempts=3, sleep=lambda _: None)
         self.assertIsNone(seen)
 
+    def test_wrong_shaped_json_is_not_a_crash(self):
+        for body in (b"[]", b'{"generated_at": null}', b'{"generated_at": 5}', b"null"):
+            self.assertIsNone(verify_live.wait_for(BUILT, sequence(body), attempts=2, sleep=lambda _: None), body)
+
 
 if __name__ == "__main__":
     unittest.main()

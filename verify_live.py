@@ -30,7 +30,7 @@ def wait_for(built, read_live, attempts=18, delay=10, sleep=time.sleep):
             seen = generated_at(read_live())
             if is_live(built, seen):
                 return seen
-        except (OSError, ValueError, KeyError):
+        except (OSError, ValueError, KeyError, TypeError):
             seen = None
         if attempt < attempts - 1:
             sleep(delay)
