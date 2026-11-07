@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: [probe.py, components.json, notices.json, "site/**", ".github/workflows/status.yml"]
+    paths: [probe.py, verify_live.py, components.json, notices.json, "site/**", ".github/workflows/status.yml"]
 
 permissions:
   contents: read
@@ -75,3 +75,8 @@ jobs:
           path: public
       - id: deploy
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
+
+      # "Reported success!" is not proof: on 2026-11-06 every deploy reported it for 19 hours while Pages kept serving
+      # the 12:25 build (status#6). Fail the round when the live page is older than the data just built.
+      - name: Check the page serves this round
+        run: python3 verify_live.py --built public/status.json --url "${{ steps.deploy.outputs.page_url }}status.json"
