@@ -70,5 +70,12 @@ class WaitFor(unittest.TestCase):
             self.assertIsNone(verify_live.wait_for(BUILT, sequence(body), attempts=2, sleep=lambda _: None), body)
 
 
+class Main(unittest.TestCase):
+
+    def test_a_relative_or_empty_url_is_an_error_not_a_request(self):
+        for url in ("/status.json", "status.json", ""):
+            self.assertEqual(verify_live.main(["--built", __file__, "--url", url]), 1)
+
+
 if __name__ == "__main__":
     unittest.main()
